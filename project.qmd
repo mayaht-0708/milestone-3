@@ -1,0 +1,8 @@
+---
+title: "Project"
+format: html
+---
+
+# Projec
+For my final project, I plan to create an interactive website called Car Stats Explorer that compares different cars to help people find the best vehicle for their budget and preferences. I will use the Car Features and MSRP dataset to explore the relationships between vehicle price, horsepower, fuel etconomy, model year, and manufacturer. I am especially interested in finding out whether more expensive cars generally have more horsepower and which cars provide the most horsepower for their price. I plan to use scatterplots, bar charts, and interactive filters to compare vehicles and identify trends in the data. My goal is to make a project that uses statistics to help people make more informed decisions when choosing a car. 
+
