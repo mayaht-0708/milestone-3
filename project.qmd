@@ -1,8 +1,183 @@
 ---
-title: "Project"
+title: "Car Stats Explorer"
 format: html
+author: Mayah Torres
+execute:
+  echo: false
+  message: false
 ---
 
-# Projec
+<style>
+body {
+  background: linear-gradient(145deg, #f3f8ff 0%, #fbf7ff 55%, #f2fff8 100%);
+  color: #233047;
+}
+
+#quarto-content {
+  max-width: 1150px;
+  margin: 0 auto;
+}
+
+.quarto-title-block .title {
+  color: #263b77;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+h1, h2 {
+  color: #263b77;
+  font-weight: 750;
+}
+
+.cell {
+  margin: 1.5rem 0 2.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e1e8f5;
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(38, 59, 119, 0.09);
+}
+
+p {
+  line-height: 1.75;
+}
+</style>
+
+# Project
 For my final project, I plan to create an interactive website called Car Stats Explorer that compares different cars to help people find the best vehicle for their budget and preferences. I will use the Car Features and MSRP dataset to explore the relationships between vehicle price, horsepower, fuel etconomy, model year, and manufacturer. I am especially interested in finding out whether more expensive cars generally have more horsepower and which cars provide the most horsepower for their price. I plan to use scatterplots, bar charts, and interactive filters to compare vehicles and identify trends in the data. My goal is to make a project that uses statistics to help people make more informed decisions when choosing a car. 
 
+# Highest-Horsepower Car by Brand
+
+```{r}
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(plotly))
+
+cars <- read_csv(
+  "https://gist.githubusercontent.com/dvinubius/33486dad2dc86319f0a06ffdb1d4f34f/raw/",
+  show_col_types = FALSE
+)
+
+top_cars_by_brand <- cars |>
+  filter(
+    !is.na(Make), !is.na(Model), !is.na(Year),
+    !is.na(`Engine HP`), `Engine HP` > 0,
+    !is.na(MSRP), MSRP > 0
+  ) |>
+  group_by(Make, Model, Year) |>
+  arrange(desc(`Engine HP`), desc(MSRP), .by_group = TRUE) |>
+  slice_head(n = 1) |>
+  ungroup() |>
+  group_by(Make) |>
+  arrange(desc(`Engine HP`), desc(Year), Model, .by_group = TRUE) |>
+  slice_head(n = 3) |>
+  ungroup() |>
+  group_by(Make) |>
+  mutate(hp_rank = row_number()) |>
+  ungroup() |>
+  mutate(
+    car = paste(Year, Model),
+    label = paste0(`Engine HP`, " HP | ", scales::dollar(MSRP))
+  )
+
+brands <- sort(unique(top_cars_by_brand$Make))
+first_brand <- brands[[1]]
+bar_colors <- c("#2E8B57", "#8A2BE2", "#1E90FF")
+
+brand_chart <- plot_ly()
+
+for (brand in brands) {
+  brand_cars <- top_cars_by_brand |>
+    filter(Make == brand) |>
+    arrange(`Engine HP`)
+
+  brand_chart <- brand_chart |>
+    add_trace(
+      data = brand_cars,
+      x = ~`Engine HP`,
+      y = ~forcats::fct_reorder(car, `Engine HP`),
+      text = ~label,
+      hovertemplate = "%{y}<br>%{x} HP<br>Price: %{customdata}<extra></extra>",
+      customdata = ~scales::dollar(MSRP),
+      type = "bar",
+      orientation = "h",
+      textposition = "outside",
+      cliponaxis = FALSE,
+      marker = list(color = bar_colors[brand_cars$hp_rank]),
+      visible = brand == first_brand,
+      name = brand
+    )
+}
+
+brand_buttons <- lapply(brands, \(brand) {
+  list(
+    label = brand,
+    method = "restyle",
+    args = list(list(visible = brands == brand))
+  )
+})
+
+brand_chart |>
+  layout(
+    title = list(text = "Top 3 cars by horsepower"),
+    xaxis = list(title = "Engine horsepower", rangemode = "tozero"),
+    yaxis = list(title = ""),
+    updatemenus = list(list(
+      type = "dropdown",
+      direction = "down",
+      x = 0,
+      y = 1.18,
+      xanchor = "left",
+      yanchor = "top",
+      buttons = brand_buttons
+    )),
+    annotations = list(list(
+      text = "Select a car brand:",
+      x = 0,
+      y = 1.27,
+      xref = "paper",
+      yref = "paper",
+      xanchor = "left",
+      yanchor = "top",
+      showarrow = FALSE
+    )),
+    margin = list(l = 110, t = 100, r = 100, b = 60)
+  ) |>
+  config(displayModeBar = FALSE)
+```
+
+## Highest-Horsepower Car for Every Brand
+
+```{r}
+#| fig-height: 16
+brand_top_cars <- cars |>
+  filter(!is.na(Make), !is.na(Model), !is.na(Year), !is.na(`Engine HP`), `Engine HP` > 0) |>
+  group_by(Make, Model, Year) |>
+  arrange(desc(`Engine HP`), .by_group = TRUE) |>
+  slice_head(n = 1) |>
+  ungroup() |>
+  group_by(Make) |>
+  arrange(desc(`Engine HP`), desc(Year), Model, .by_group = TRUE) |>
+  slice_head(n = 1) |>
+  ungroup() |>
+  mutate(car = paste(Make, Model, sep = " — "))
+
+ggplot(
+  brand_top_cars,
+  aes(x = `Engine HP`, y = forcats::fct_reorder(car, `Engine HP`), fill = `Engine HP`)
+) +
+  geom_col() +
+  geom_text(aes(label = `Engine HP`), hjust = -0.25, size = 2.8) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.12))) +
+  scale_fill_gradientn(
+    colors = c("#2E8B57", "#8A2BE2", "#1E90FF"),
+    guide = "none"
+  ) +
+  labs(
+    title = "Highest-horsepower car for each brand",
+    x = "Engine horsepower",
+    y = NULL,
+    caption = "Each bar shows the single highest-horsepower car listed for that brand."
+  ) +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 7))
+```
